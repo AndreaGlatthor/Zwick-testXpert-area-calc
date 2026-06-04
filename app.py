@@ -403,10 +403,31 @@ def compute_area_interval_Nm(
     return float(trapezoid(ys, xs / 1000.0))
 
 
+def compute_mean_force_interval_N(
+    mm: np.ndarray, N: np.ndarray, start_mm: float, end_mm: float
+) -> float:
+    """Mittlere Kraft im Bereich [start_mm, end_mm] in N."""
+    xs, ys = _slice_curve_interval(mm, N, start_mm, end_mm)
+    if len(xs) < 2:
+        return 0.0
+
+    path_length_m = float(xs[-1] - xs[0]) / 1000.0
+    if path_length_m <= 0.0:
+        return 0.0
+
+    return float(trapezoid(ys, xs / 1000.0) / path_length_m)
+
+
 def format_area_milli(area_Nm: float) -> str:
-    """Formatiert Flaeche als ganzzahlige mN*m und mJ Anzeige."""
+    """Formatiert Flaeche als ganzzahlige mN·m-Anzeige."""
     area_milli = int(round(float(area_Nm) * 1000.0))
     return f"{area_milli} mN\u00b7m"
+
+
+def format_mean_force_N(force_N: float) -> str:
+    """Formatiert die mittlere Kraft als Newton-Anzeige mit zwei
+    Nachkommastellen."""
+    return f"{round(float(force_N), 2)} N"
 
 
 # ===========================================================================
@@ -504,7 +525,9 @@ def make_figure(
     return fig
 
 
-def empty_figure(msg="Bitte Screenshot per Strg+V einfuegen oder Datei hochladen."):
+def empty_figure(
+    msg="Bitte Screenshot per Strg+V einfuegen oder Bild-Datei hochladen.",
+):
     fig = go.Figure()
     fig.update_layout(
         template="plotly_white",
@@ -519,7 +542,7 @@ def empty_figure(msg="Bitte Screenshot per Strg+V einfuegen oder Datei hochladen
                 x=0.5,
                 y=0.5,
                 showarrow=False,
-                font=dict(size=16, color="#888"),
+                font=dict(size=16, color="red"),
             )
         ],
     )
@@ -567,8 +590,20 @@ _init_area_value = (
     if _init_mm is not None
     else None
 )
+_init_mean_force_value = (
+    compute_mean_force_interval_N(
+        _init_mm, _init_N, DEFAULT_INTEG_START_MM, DEFAULT_INTEG_END_MM
+    )
+    if _init_mm is not None
+    else None
+)
 _init_area = (
     format_area_milli(_init_area_value) if _init_area_value is not None else "\u2013"
+)
+_init_mean_force = (
+    format_mean_force_N(_init_mean_force_value)
+    if _init_mean_force_value is not None
+    else "\u2013"
 )
 _init_curve_data = (
     {"mm": _init_mm.tolist(), "N": _init_N.tolist()} if _init_mm is not None else None
@@ -672,7 +707,7 @@ app.layout = html.Div(
                     },
                     children=[
                         html.Div(
-                            "Integrierte Fläche unter der Kurve (Bereich einstellbar)",
+                            "Integrierte Flaeche unter der Kurve",
                             style={"fontSize": "18px", "color": "#004684"},
                         ),
                         html.Div(
@@ -748,6 +783,28 @@ app.layout = html.Div(
                             "(mN\u00b7m entspricht mJ)",
                             style={"fontSize": "13px", "color": "grey"},
                         ),
+                        html.Div(
+                            "Mittlere Kraft im Intervall",
+                            style={
+                                "fontSize": "18px",
+                                "color": "#004684",
+                                "marginTop": "18px",
+                            },
+                        ),
+                        html.Div(
+                            id="mean-force-value",
+                            children=_init_mean_force,
+                            style={
+                                "fontSize": "28px",
+                                "fontWeight": "700",
+                                "color": "#004684",
+                                "marginTop": "6px",
+                            },
+                        ),
+                        html.Div(
+                            "(Intervallfläche geteilt durch Weglänge)",
+                            style={"fontSize": "13px", "color": "grey"},
+                        ),
                     ],
                 )
             ],
@@ -791,6 +848,7 @@ app.layout = html.Div(
 @app.callback(
     Output("kraft-weg-graph", "figure"),
     Output("area-value", "children"),
+    Output("mean-force-value", "children"),
     Output("status-msg", "children"),
     Output("curve-data", "data"),
     Input("pasted-image", "data"),
@@ -809,6 +867,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
         end_mm = float(DEFAULT_INTEG_END_MM if integ_end is None else integ_end)
     except Exception:
         return (
+            dash.no_update,
             dash.no_update,
             dash.no_update,
             "Fehler: Start/Ende muessen Zahlen sein.",
@@ -830,14 +889,17 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
             N = np.asarray(curve_data.get("N", []), dtype=float)
             if len(mm) >= 2 and len(N) >= 2:
                 area = compute_area_interval_Nm(mm, N, start_mm, end_mm)
+                mean_force = compute_mean_force_interval_N(mm, N, start_mm, end_mm)
                 fig = make_figure(mm, N, area, start_mm, end_mm)
                 return (
                     fig,
                     format_area_milli(area),
+                    format_mean_force_N(mean_force),
                     (status_prefix + "Integrationsbereich aktualisiert."),
                     dash.no_update,
                 )
         return (
+            dash.no_update,
             dash.no_update,
             dash.no_update,
             "Bitte zuerst ein Bild einfuegen oder hochladen.",
@@ -849,6 +911,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
         calib = auto_calibrate(img)
         mm, N = digitize_blue_curve(img, calib)
         area = compute_area_interval_Nm(mm, N, start_mm, end_mm)
+        mean_force = compute_mean_force_interval_N(mm, N, start_mm, end_mm)
         fig = make_figure(mm, N, area, start_mm, end_mm)
         # Ergebnis als CSV mitschreiben (optional)
         try:
@@ -866,11 +929,18 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
         return (
             fig,
             format_area_milli(area),
+            format_mean_force_N(mean_force),
             html.Span(info, style={"color": "green"}),
             {"mm": mm.tolist(), "N": N.tolist()},
         )
     except Exception as e:
-        return dash.no_update, dash.no_update, f"Fehler: {e}", dash.no_update
+        return (
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            f"Fehler: {e}",
+            dash.no_update,
+        )
 
 
 if __name__ == "__main__":
