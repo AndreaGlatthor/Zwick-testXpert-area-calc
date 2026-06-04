@@ -1,4 +1,4 @@
 black==24.10.0
 ruff==0.6.9
 pre-commit==3.8.0
-docformatter==1.7.5
+docformatter==1.7.8

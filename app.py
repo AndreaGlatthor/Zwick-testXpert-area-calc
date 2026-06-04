@@ -1,6 +1,5 @@
-"""
-Kraft-Weg-Diagramm Web-App
-==========================
+"""Kraft-Weg-Diagramm Web-App.
+
 Dash + Plotly App mit Bild-Digitalisierung aus der Zwischenablage oder per Datei-Upload
 
 Funktionen
@@ -121,8 +120,7 @@ def _fallback_calib_from_image_shape(h: int, w: int) -> dict:
 def auto_calibrate(
     img: Image.Image, mm_per_tick: float = MM_PER_TICK, N_per_tick: float = N_PER_TICK
 ) -> dict:
-    """
-    Bestimmt die Achsen-Kalibrierung automatisch aus dem Diagramm.
+    """Bestimmt die Achsen-Kalibrierung automatisch aus dem Diagramm.
 
     Vorgehen
     --------
@@ -140,8 +138,7 @@ def auto_calibrate(
        X-Achse, links neben der Y-Achse, rechts am Bildrand.
 
     Faellt etwas aus (z. B. keine Ticks gefunden), wird der globale
-    Fallback CALIB verwendet.
-    """
+    Fallback CALIB verwendet."""
     a = np.array(img.convert("RGB")).astype(int)
     h, w, _ = a.shape
     gray = a.mean(2)
@@ -216,8 +213,7 @@ def auto_calibrate(
 # DIGITALISIERUNGSMETHODE
 # ===========================================================================
 def digitize_blue_curve(img: Image.Image, calib: dict = None):
-    """
-    Digitalisiert die Kurve aus einem Kraft-Weg-Diagramm.
+    """Digitalisiert die Kurve aus einem Kraft-Weg-Diagramm.
 
     Wird keine Kalibrierung uebergeben, wird sie automatisch aus dem Bild
     bestimmt (auto_calibrate).
@@ -345,14 +341,20 @@ def digitize_blue_curve(img: Image.Image, calib: dict = None):
 
 
 def compute_area_Nm(mm: np.ndarray, N: np.ndarray) -> float:
-    """Flaeche unter der Kurve. Weg mm -> m, Ergebnis in N*m (Joule)."""
+    """Flaeche unter der Kurve.
+
+    Weg mm -> m, Ergebnis in N*m (Joule).
+    """
     return float(trapezoid(N, mm / 1000.0))
 
 
 def _slice_curve_interval(
     mm: np.ndarray, N: np.ndarray, start_mm: float, end_mm: float
 ):
-    """Kurvenausschnitt inkl. linear interpolierter Randpunkte [start_mm, end_mm]."""
+    """Kurvenausschnitt inkl.
+
+    linear interpolierter Randpunkte [start_mm, end_mm].
+    """
     if len(mm) == 0:
         return np.array([]), np.array([])
 
@@ -392,7 +394,8 @@ def _slice_curve_interval(
 def compute_area_interval_Nm(
     mm: np.ndarray, N: np.ndarray, start_mm: float, end_mm: float
 ) -> float:
-    """Flaeche nur im Bereich [start_mm, end_mm], mit Interpolation an den Grenzen."""
+    """Flaeche nur im Bereich [start_mm, end_mm], mit Interpolation an den
+    Grenzen."""
     xs, ys = _slice_curve_interval(mm, N, start_mm, end_mm)
     if len(xs) < 2:
         return 0.0
