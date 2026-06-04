@@ -351,11 +351,12 @@ def compute_area_Nm(mm: np.ndarray, N: np.ndarray) -> float:
 def _slice_curve_interval(
     mm: np.ndarray, N: np.ndarray, start_mm: float, end_mm: float
 ):
-    """Kurvenausschnitt inkl.
+    """Kurvenausschnitt definieren.
 
-    linear interpolierter Randpunkte [start_mm, end_mm].
+    Schneidet die Kurve auf ein gewünschtes Intervall zu und sorgt
+    dafür, dass die Intervallgrenzen exakt enthalten sind.
     """
-    if len(mm) == 0:
+    if len(mm) == 0:  # keine Datenpunkte -> leeres Ergebnis
         return np.array([]), np.array([])
 
     order = np.argsort(mm)
@@ -364,31 +365,31 @@ def _slice_curve_interval(
 
     lo = max(float(np.min(x)), float(min(start_mm, end_mm)))
     hi = min(float(np.max(x)), float(max(start_mm, end_mm)))
-    if hi <= lo:
+    if hi <= lo:  # ungültiger Bereich -> leeres Ergebnis
         return np.array([]), np.array([])
 
     inside = (x >= lo) & (x <= hi)
     xs = x[inside]
     ys = y[inside]
 
-    y_lo = float(np.interp(lo, x, y))
-    y_hi = float(np.interp(hi, x, y))
+    y_lo = float(np.interp(lo, x, y))  # Interpolierter y-Wert an der unteren Grenze
+    y_hi = float(np.interp(hi, x, y))  # Interpolierter y-Wert an der oberen Grenze
 
-    if len(xs) == 0 or xs[0] > lo:
+    if len(xs) == 0 or xs[0] > lo:  # untere Grenze nicht enthalten -> hinzufügen
         xs = np.insert(xs, 0, lo)
         ys = np.insert(ys, 0, y_lo)
-    else:
+    else:  # untere Grenze bereits enthalten -> sicherstellen, dass y-Wert korrekt ist
         xs[0] = lo
         ys[0] = y_lo
 
-    if xs[-1] < hi:
+    if xs[-1] < hi:  # obere Grenze nicht enthalten -> hinzufügen
         xs = np.append(xs, hi)
         ys = np.append(ys, y_hi)
-    else:
+    else:  # obere Grenze bereits enthalten -> sicherstellen, dass y-Wert korrekt ist
         xs[-1] = hi
         ys[-1] = y_hi
 
-    return xs, ys
+    return xs, ys  # sortierte Arrays mit garantiert enthaltenen Intervallgrenzen
 
 
 def compute_area_interval_Nm(
@@ -400,6 +401,12 @@ def compute_area_interval_Nm(
     if len(xs) < 2:
         return 0.0
     return float(trapezoid(ys, xs / 1000.0))
+
+
+def format_area_milli(area_Nm: float) -> str:
+    """Formatiert Flaeche als ganzzahlige mN*m und mJ Anzeige."""
+    area_milli = int(round(float(area_Nm) * 1000.0))
+    return f"{area_milli} mN\u00b7m"
 
 
 # ===========================================================================
@@ -561,7 +568,7 @@ _init_area_value = (
     else None
 )
 _init_area = (
-    f"{_init_area_value:.4f} N\u00b7m" if _init_area_value is not None else "\u2013"
+    format_area_milli(_init_area_value) if _init_area_value is not None else "\u2013"
 )
 _init_curve_data = (
     {"mm": _init_mm.tolist(), "N": _init_N.tolist()} if _init_mm is not None else None
@@ -738,7 +745,7 @@ app.layout = html.Div(
                             },
                         ),
                         html.Div(
-                            "(N\u00b7m = Joule)",
+                            "(mN\u00b7m entspricht mJ)",
                             style={"fontSize": "13px", "color": "grey"},
                         ),
                     ],
@@ -773,8 +780,7 @@ app.layout = html.Div(
             (
                 "Digitalisierung: Die Kurve wird ueber ihren Farbton "
                 "(B > R und B > G) erkannt und per Kurven-Verfolgung "
-                "extrahiert. Die Fläche wird mit der Trapezregel berechnet; "
-                "der Weg wird von mm in m umgerechnet (Ergebnis in N\u00b7m)."
+                "extrahiert. Die Fläche wird mit der Trapezregel berechnet."
             ),
             style={"fontSize": "13px", "color": "lightgrey", "marginTop": "16px"},
         ),
@@ -827,7 +833,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
                 fig = make_figure(mm, N, area, start_mm, end_mm)
                 return (
                     fig,
-                    f"{area:.4f} N\u00b7m",
+                    format_area_milli(area),
                     (status_prefix + "Integrationsbereich aktualisiert."),
                     dash.no_update,
                 )
@@ -859,7 +865,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
         )
         return (
             fig,
-            f"{area:.4f} N\u00b7m",
+            format_area_milli(area),
             html.Span(info, style={"color": "green"}),
             {"mm": mm.tolist(), "N": N.tolist()},
         )
