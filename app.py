@@ -9,8 +9,8 @@ Funktionen
 - Digitalisierung der Kurve direkt aus dem Screenshot:
         * Erkennung ueber den BLAEULICHEN Farbton (B > R und B > G), NICHT
             ueber einen exakten Farbwert -> robust gegen Anti-Aliasing.
-        * Kurven-Verfolgung (Kontinuitaet), um die Linie von anderen evt.
-            ähnlich gefaerbten Linien zu trennen.
+        * Extraktion ueber zusammenhaengende Kurven-Komponente, um die
+            relevante Linie robust von anderen Linien zu trennen.
 - X-Achse: Dehnung in mm
 - Y-Achse: Kraft in N
 - Integration der Flaeche unter der Kurve. Der Weg wird von mm in m
@@ -35,10 +35,14 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, State, ctx, dcc, html
 from PIL import Image
+from scipy import ndimage
 from scipy.integrate import trapezoid
 
-DEFAULT_INTEG_START_MM = 80.0
-DEFAULT_INTEG_END_MM = 200.0
+DEFAULT_INTEG_START_MM = 120.0
+DEFAULT_INTEG_END_MM = 220.0
+DEFAULT_X_AXIS_MIN_MM = 50.0
+DEFAULT_X_AXIS_MAX_MM = 300.0
+X_AXIS_SPAN_MM = DEFAULT_X_AXIS_MAX_MM - DEFAULT_X_AXIS_MIN_MM
 
 
 def _env_flag(name: str, default: bool) -> bool:
@@ -60,7 +64,7 @@ USE_INITIAL_CSV_CACHE = _env_flag("APP_USE_INITIAL_CACHE", not DEBUG_MODE)
 # ---------------------------------------------------------------------------
 # Diese Werte sind der FALLBACK fuer den Original-Screenshot. Im Normalbetrieb
 # wird die Kalibrierung automatisch aus dem Bild bestimmt (auto_calibrate).
-#   X0_COL      : Pixelspalte der Y-Achse bei Dehnung = 0 mm
+#   X0_COL      : Pixelspalte der Y-Achse bei Dehnung = DEFAULT_X_AXIS_MIN_MM
 #   PX_PER_MM   : Pixel pro mm in X-Richtung
 #   Y0_ROW      : Pixelzeile der Nulllinie (Kraft = 0 N)
 #   PX_PER_N    : Pixel pro Newton in Y-Richtung
@@ -99,6 +103,25 @@ def _peaks(arr, thr, min_dist=15):
     return out
 
 
+def _axis_right_from_row(dark_row: np.ndarray, y_axis_col: int) -> int:
+    """Schaetzt das rechte Ende der X-Achse aus der Achsenzeile.
+
+    Nimmt den zusammenhaengenden dunklen Abschnitt, der die Y-Achse
+    enthaelt, und liefert dessen rechtes Ende.
+    """
+    cols = np.where(dark_row)[0]
+    if len(cols) == 0:
+        return -1
+
+    idx = int(np.argmin(np.abs(cols - y_axis_col)))
+    right = int(cols[idx])
+    for k in range(idx + 1, len(cols)):
+        if cols[k] - cols[k - 1] > 8:
+            break
+        right = int(cols[k])
+    return right
+
+
 def _fallback_calib_from_image_shape(h: int, w: int) -> dict:
     """Skaliert den globalen Fallback grob auf die aktuelle Bildgroesse."""
     ref_h = CALIB["PLOT_BOTTOM"] + 2
@@ -124,16 +147,16 @@ def auto_calibrate(
 
     Vorgehen
     --------
-     1. ACHSENLINIEN: Die durchgezogenen, dunklen (fast schwarzen) Achsen
-         erzeugen je eine Spalte / Zeile mit sehr vielen dunklen Pixeln.
-            - Y-Achse  (Dehnung = 0) = Spalte mit den meisten dunklen Pixeln.
-            - X-Achse  (Kraft   = 0) = Zeile  mit den meisten dunklen Pixeln.
+    1. ACHSENLINIEN: Die durchgezogenen, dunklen (fast schwarzen) Achsen
+       erzeugen je eine Spalte / Zeile mit sehr vielen dunklen Pixeln.
+       - Y-Achse (Dehnung = X-Achsenstart) = Spalte mit den meisten dunklen Pixeln.
+       - X-Achse (Kraft = 0) = Zeile mit den meisten dunklen Pixeln.
     2. TEILSTRICHE (Ticks):
-            - Y-Ticks: kurze dunkle Marken direkt LINKS der Y-Achse.
-            - X-Ticks: kurze dunkle Marken direkt UNTER der X-Achse.
-        Der Median der Tick-Abstaende (in px) ergibt zusammen mit dem
-        bekannten physikalischen Abstand pro Tick die Skalierung
-        (px/mm bzw. px/N).
+       - Y-Ticks: kurze dunkle Marken direkt LINKS der Y-Achse.
+       - X-Ticks: kurze dunkle Marken direkt UNTER der X-Achse.
+       Der Median der Tick-Abstaende (in px) ergibt zusammen mit dem
+       bekannten physikalischen Abstand pro Tick die Skalierung
+       (px/mm bzw. px/N).
     3. PLOTBEREICH: oben am oberen Ende der Y-Achsenlinie, unten an der
        X-Achse, links neben der Y-Achse, rechts am Bildrand.
 
@@ -148,7 +171,7 @@ def auto_calibrate(
     rowcnt = dark.sum(1)
 
     # --- 1) Achsenlinien -------------------------------------------------
-    y_axis_col = int(np.argmax(colcnt))  # vertikale Achse (Dehnung = 0)
+    y_axis_col = int(np.argmax(colcnt))  # vertikale Achse (Dehnung = X-Achsenstart)
     x_axis_row = int(np.argmax(rowcnt))  # horizontale Achse (Kraft = 0)
 
     # Plausibilitaet: Achsen muessen klar ausgepraegt sein
@@ -159,6 +182,11 @@ def auto_calibrate(
     col_dark_rows = np.where(dark[:, y_axis_col])[0]
     axis_top = int(col_dark_rows.min()) if len(col_dark_rows) else 0
 
+    # rechtes Ende der X-Achse (wichtig bei UIs mit rechter Seitenleiste)
+    axis_right = _axis_right_from_row(dark[x_axis_row, :], y_axis_col)
+    if axis_right <= y_axis_col + 40:
+        axis_right = w - 2
+
     # --- 2) Teilstriche --------------------------------------------------
     lo = max(0, y_axis_col - 16)
     yt = _peaks(dark[:, lo : y_axis_col - 1].sum(1), 5)
@@ -168,7 +196,7 @@ def auto_calibrate(
     if len(yt) < 3 or len(xt) < 3:
         # Ticks nicht sicher erkennbar -> Achsenpositionen nutzen,
         # Skalierung aus Plot-Ausdehnung abschaetzen.
-        px_per_mm_geom = (w - (y_axis_col + 1)) / 230.0
+        px_per_mm_geom = (axis_right - (y_axis_col + 1)) / X_AXIS_SPAN_MM
         px_per_n_geom = (x_axis_row - axis_top) / 9.6
         return dict(
             X0_COL=float(y_axis_col),
@@ -178,7 +206,7 @@ def auto_calibrate(
             PLOT_TOP=max(0, axis_top - 2),
             PLOT_BOTTOM=x_axis_row - 2,
             PLOT_LEFT=y_axis_col + 1,
-            PLOT_RIGHT=w - 2,
+            PLOT_RIGHT=min(w - 2, axis_right),
         )
 
     sy = float(np.median(np.diff(yt)))  # px je Y-Tick
@@ -189,7 +217,7 @@ def auto_calibrate(
 
     # Tick-Erkennung auf Plausibilitaet pruefen. Bei extremen Werten
     # stattdessen Geometrie-basierte Skalierung verwenden.
-    px_per_mm_geom = (w - (y_axis_col + 1)) / 230.0
+    px_per_mm_geom = (axis_right - (y_axis_col + 1)) / X_AXIS_SPAN_MM
     px_per_n_geom = (x_axis_row - axis_top) / 9.6
     mm_ok = 0.4 * px_per_mm_geom <= px_per_mm <= 2.8 * px_per_mm_geom
     n_ok = 0.4 * px_per_n_geom <= px_per_n <= 2.8 * px_per_n_geom
@@ -205,7 +233,7 @@ def auto_calibrate(
         PLOT_TOP=max(0, axis_top - 2),
         PLOT_BOTTOM=x_axis_row - 2,
         PLOT_LEFT=y_axis_col + 1,
-        PLOT_RIGHT=w - 2,
+        PLOT_RIGHT=min(w - 2, axis_right),
     )
 
 
@@ -220,14 +248,13 @@ def digitize_blue_curve(img: Image.Image, calib: dict = None):
 
     Vorgehen
     --------
-    1. Blau-Maske ueber den FARBTON: B > R+6 und B > G+6, plus
-        Helligkeitsgrenzen, um Weiss/Gitter und zu helle Pixel auszuschliessen.
-        Dadurch werden auch anti-aliaste (aufgehellte) Linienpixel erfasst.
-    2. Pro Bildspalte alle Kandidaten-Zeilen sammeln.
-    3. Kurven-Verfolgung: ausgehend von einem Startpunkt in einem Bereich,
-        in dem die Kurve eindeutig ist, jeweils den naechstgelegenen
-        Kandidaten der Nachbarspalte waehlen (vorwaerts + rueckwaerts). So
-        wird die obere Kurve nicht mit der unteren verwechselt.
+     1. Blau-Maske ueber den FARBTON: B > R+6 und B > G+6, plus
+         Helligkeitsgrenzen, um Weiss/Gitter und zu helle Pixel auszuschliessen.
+         Dadurch werden auch anti-aliaste (aufgehellte) Linienpixel erfasst.
+     2. Kleine Luecken in der Maske schliessen und den zusammenhaengenden
+         Kurvenzug ueber Connected Components bestimmen.
+     3. Startpunkt robust waehlen und pro X-Spalte den oberen Punkt dieser
+         Kurven-Komponente extrahieren.
     4. Pixel -> physikalische Einheiten umrechnen (mm bzw. N).
 
     Rueckgabe
@@ -262,24 +289,31 @@ def digitize_blue_curve(img: Image.Image, calib: dict = None):
     navy[:, : calib["PLOT_LEFT"]] = False
     navy[:, calib["PLOT_RIGHT"] :] = False
 
-    h, w = navy.shape
+    _, w = navy.shape
     c_right = min(calib["PLOT_RIGHT"], w)
     c_left = calib["PLOT_LEFT"]
 
-    # 2) Kandidaten je Spalte
+    # 2) Kleine Luecken in der Linie schliessen, damit die Kurve als
+    #    zusammenhaengende Komponente erkannt werden kann.
+    closed = ndimage.binary_closing(navy, structure=np.ones((3, 3)), iterations=1)
+
+    # Kandidaten je Spalte (aus Originalmaske fuer praezise Y-Lage)
     cand = {c: np.where(navy[:, c])[0] for c in range(c_left, c_right)}
 
     # 3) Startpunkt robust waehlen:
-    #    bevorzugt bei ~130 mm, sonst aus realen Kandidatenspalten.
+    #    bevorzugt in der Diagrammmitte, sonst aus realen Kandidatenspalten.
     cols_with = np.array(
         [c for c in range(c_left, c_right) if len(cand.get(c, [])) > 0], dtype=int
     )
     if len(cols_with) == 0:
         raise ValueError(
-            "Keine Kurve im Bild gefunden. " "Bitte Farbe/Kalibrierung pruefen."
+            "Keine Kurve im Bild gefunden. Bitte Farbe/Kalibrierung pruefen."
         )
 
-    seed_target = int(130 * calib["PX_PER_MM"] + calib["X0_COL"])
+    seed_target_mm = DEFAULT_X_AXIS_MIN_MM + 0.5 * X_AXIS_SPAN_MM
+    seed_target = int(
+        (seed_target_mm - DEFAULT_X_AXIS_MIN_MM) * calib["PX_PER_MM"] + calib["X0_COL"]
+    )
     if cols_with.min() <= seed_target <= cols_with.max():
         seed_c = int(cols_with[np.argmin(np.abs(cols_with - seed_target))])
     else:
@@ -287,53 +321,83 @@ def digitize_blue_curve(img: Image.Image, calib: dict = None):
         # meist besser getrennt.
         seed_c = int(cols_with[(2 * len(cols_with)) // 3])
 
+    seed_r = int(cand[seed_c].min())  # oberster (= hoechste Kraft) Pixel
+
+    # 3b) Verbundene Kurvenkomponente am Seed bestimmen.
+    labels, n_labels = ndimage.label(closed, structure=np.ones((3, 3), dtype=bool))
+    if n_labels <= 0:
+        raise ValueError("Keine zusammenhaengende Kurve erkannt.")
+
+    seed_label = int(labels[seed_r, seed_c])
+    if seed_label == 0:
+        raise ValueError("Seed liegt nicht auf einer erkannten Kurve.")
+
+    component = labels == seed_label
+
+    # Pro Spalte den obersten Punkt der Seed-Komponente nehmen.
+    # Prioritaet hat die Originalmaske (praeziser), sonst Closed-Maske.
     track = {}
-    prev = int(cand[seed_c].min())  # oberster (= hoechste Kraft) blauer Pixel
-    track[seed_c] = prev
-
-    max_jump = max(14, int(0.06 * max(1, calib["PLOT_BOTTOM"] - calib["PLOT_TOP"])))
-
-    # Die alte Logik schrieb bei fehlenden Treffern den letzten Punkt weiter.
-    # Das erzeugte unphysikalische horizontale Enden. Hier nur valide Treffer
-    # speichern. Luecken sind erlaubt (kein kuenstliches Auffuellen).
-
-    # vorwaerts
-    p = prev
-    for c in range(seed_c + 1, c_right):
-        rs = cand.get(c, np.array([], dtype=int))
-        if len(rs) == 0:
+    for c in range(c_left, c_right):
+        rs_precise = np.where(component[:, c] & navy[:, c])[0]
+        if len(rs_precise) > 0:
+            track[c] = int(rs_precise.min())
             continue
 
-        j = int(rs[np.argmin(np.abs(rs - p))])
-        dj = abs(j - p)
+        rs_closed = np.where(component[:, c])[0]
+        if len(rs_closed) > 0:
+            track[c] = int(rs_closed.min())
 
-        ok_regular = dj <= max_jump
-        # Am Kurvenende ist ein steiler Abfall moeglich; diesen nicht
-        # wegfiltern, solange der Sprung nach unten geht.
-        ok_steep_drop = (j > p) and (dj <= 3 * max_jump)
-        if ok_regular or ok_steep_drop:
-            p = j
-            track[c] = p
-            continue
+    # Falls die Kurve deutlich vor dem erwarteten Ende aufhoert, am rechten
+    # Rand mit etwas weicheren Farbgrenzen nachfassen (nur lokal-kontinuierlich).
+    if len(track) > 0:
+        cols_now = np.array(sorted(track), dtype=float)
+        mm_now = DEFAULT_X_AXIS_MIN_MM + (
+            (cols_now - calib["X0_COL"]) / calib["PX_PER_MM"]
+        )
+        if float(mm_now.max()) < (DEFAULT_X_AXIS_MAX_MM - 20.0):
+            dom_thr_soft = max(2.0, 0.45 * dom_thr)
+            sat_floor_soft = max(5.0, 0.30 * sat_floor)
+            navy_soft = (blue_dom >= dom_thr_soft) & (B >= 12) & (sat >= sat_floor_soft)
 
-    # rueckwaerts
-    p = prev
-    for c in range(seed_c - 1, c_left - 1, -1):
-        rs = cand.get(c, np.array([], dtype=int))
-        if len(rs) == 0:
-            continue
+            navy_soft[: calib["PLOT_TOP"], :] = False
+            navy_soft[calib["PLOT_BOTTOM"] :, :] = False
+            navy_soft[:, : calib["PLOT_LEFT"]] = False
+            navy_soft[:, calib["PLOT_RIGHT"] :] = False
 
-        j = int(rs[np.argmin(np.abs(rs - p))])
-        if abs(j - p) <= max_jump:
-            p = j
-            track[c] = p
-            continue
+            last_c = int(max(track.keys()))
+            p = int(track[last_c])
+            misses = 0
+            max_jump_soft = max(
+                18, int(0.09 * max(1, calib["PLOT_BOTTOM"] - calib["PLOT_TOP"]))
+            )
+            for c in range(last_c + 1, c_right):
+                rs = np.where(navy_soft[:, c])[0]
+                if len(rs) == 0:
+                    misses += 1
+                    if misses > 10:
+                        break
+                    continue
 
-    cols = np.array(sorted(track))
-    rows = np.array([track[c] for c in cols])
+                j = int(rs[np.argmin(np.abs(rs - p))])
+                dj = abs(j - p)
+                if dj <= max_jump_soft or ((j > p) and (dj <= 3 * max_jump_soft)):
+                    track[c] = j
+                    p = j
+                    misses = 0
+                    continue
+
+                misses += 1
+                if misses > 10:
+                    break
+
+    if len(track) < 3:
+        raise ValueError("Zu wenige Kurvenpunkte erkannt.")
+
+    cols = np.array(sorted(track), dtype=float)
+    rows = np.array([track[int(c)] for c in cols], dtype=float)
 
     # 4) Umrechnung in physikalische Einheiten
-    mm = (cols - calib["X0_COL"]) / calib["PX_PER_MM"]
+    mm = DEFAULT_X_AXIS_MIN_MM + (cols - calib["X0_COL"]) / calib["PX_PER_MM"]
     N = (calib["Y0_ROW"] - rows) / calib["PX_PER_N"]
     N = np.clip(N, 0, None)
 
@@ -452,7 +516,7 @@ def make_figure(
             fill="tozeroy",
             fillcolor="#c9990d",
             name=(
-                "Integrierte Flaeche "
+                "Integrierte Fläche "
                 f"({min(integ_start_mm, integ_end_mm):.1f} bis "
                 f"{max(integ_start_mm, integ_end_mm):.1f} mm)"
             ),
@@ -487,7 +551,8 @@ def make_figure(
         height=600,
     )
     fig.update_xaxes(
-        range=[0, max(230, float(np.nanmax(mm)) if len(mm) else 230)],
+        range=[DEFAULT_X_AXIS_MIN_MM, DEFAULT_X_AXIS_MAX_MM],
+        autorange=False,
         showline=True,
         linewidth=2,
         linecolor="#14141a",
@@ -545,6 +610,9 @@ def empty_figure(
                 font=dict(size=16, color="red"),
             )
         ],
+    )
+    fig.update_xaxes(
+        range=[DEFAULT_X_AXIS_MIN_MM, DEFAULT_X_AXIS_MAX_MM], autorange=False
     )
     return fig
 
@@ -707,7 +775,7 @@ app.layout = html.Div(
                     },
                     children=[
                         html.Div(
-                            "Integrierte Flaeche unter der Kurve",
+                            "Integrierte Fläche unter der Kurve",
                             style={"fontSize": "18px", "color": "#004684"},
                         ),
                         html.Div(
@@ -773,7 +841,7 @@ app.layout = html.Div(
                             id="area-value",
                             children=_init_area,
                             style={
-                                "fontSize": "34px",
+                                "fontSize": "24px",
                                 "fontWeight": "700",
                                 "color": "#004684",
                                 "marginTop": "6px",
@@ -795,7 +863,7 @@ app.layout = html.Div(
                             id="mean-force-value",
                             children=_init_mean_force,
                             style={
-                                "fontSize": "28px",
+                                "fontSize": "24px",
                                 "fontWeight": "700",
                                 "color": "#004684",
                                 "marginTop": "6px",
