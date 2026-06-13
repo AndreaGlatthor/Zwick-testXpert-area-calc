@@ -71,10 +71,10 @@ USE_INITIAL_CSV_CACHE = _env_flag("APP_USE_INITIAL_CACHE", not DEBUG_MODE)
 #   PLOT_TOP/BOTTOM/LEFT/RIGHT : Plotbereich (ohne Achsen/Beschriftung)
 #
 # Abstand der Achsen-Teilstriche in physikalischen Einheiten. Bei anderen
-# Diagrammen ggf. anpassen (hier: kleine X-Striche = 10 mm, Y-Striche = 0.5 N).
+# Diagrammen ggf. anpassen (hier: kleine X-Striche = 10 mm, Y-Striche = 1.0 N).
 # ===========================================================================
 MM_PER_TICK = 10.0  # Dehnungs-Abstand zwischen zwei kleinen X-Teilstrichen
-N_PER_TICK = 0.5  # Kraft-Abstand zwischen zwei kleinen Y-Teilstrichen
+N_PER_TICK = 1.0  # Kraft-Abstand zwischen zwei kleinen Y-Teilstrichen
 
 CALIB = dict(
     X0_COL=165.0,
@@ -719,12 +719,16 @@ app.layout = html.Div(
         "maxWidth": "1100px",
         "margin": "0 auto",
         "fontFamily": "Inter, Arial, sans-serif",
-        "padding": "24px",
+        "padding": "10px 12px",
     },
     children=[
         html.H1(
             "Kraft-Weg-Diagramm - Flächenintegration",
-            style={"textAlign": "center", "color": "#c9990d"},
+            style={
+                "textAlign": "center",
+                "color": "#c9990d",
+                "margin": "4px 0 10px 0",
+            },
         ),
         dcc.Upload(
             id="upload-image",
@@ -758,120 +762,160 @@ app.layout = html.Div(
             style={
                 "textAlign": "center",
                 "color": "#c0392b",
-                "minHeight": "20px",
-                "marginBottom": "12px",
+                "minHeight": "14px",
+                "marginBottom": "8px",
             },
         ),
         html.Div(
-            style={"display": "flex", "justifyContent": "center", "margin": "20px 0"},
+            style={"display": "flex", "justifyContent": "center", "margin": "10px 0"},
             children=[
                 html.Div(
                     style={
                         "background": "#f4f6f8",
                         "border": "1px solid #004684",
                         "borderRadius": "12px",
-                        "padding": "20px 40px",
-                        "textAlign": "center",
+                        "padding": "12px",
+                        "display": "flex",
+                        "gap": "10px",
+                        "flexWrap": "wrap",
+                        "justifyContent": "center",
                     },
                     children=[
                         html.Div(
-                            "Integrierte Fläche unter der Kurve",
-                            style={"fontSize": "18px", "color": "#004684"},
+                            "Auswertungsintervall definieren",
+                            style={
+                                "display": "none",
+                            },
                         ),
                         html.Div(
                             style={
-                                "display": "flex",
-                                "gap": "12px",
-                                "justifyContent": "center",
-                                "marginTop": "12px",
-                                "marginBottom": "10px",
+                                "background": "white",
+                                "border": "1px solid #d3dbe3",
+                                "borderRadius": "10px",
+                                "padding": "10px 12px",
+                                "minWidth": "300px",
+                                "textAlign": "center",
                             },
                             children=[
                                 html.Div(
-                                    children=[
-                                        html.Div(
-                                            "Start [mm]",
-                                            style={
-                                                "fontSize": "18px",
-                                                "color": "#004684",
-                                                "marginBottom": "4px",
-                                            },
-                                        ),
-                                        dcc.Input(
-                                            id="integ-start",
-                                            type="number",
-                                            value=DEFAULT_INTEG_START_MM,
-                                            step=1,
-                                            style={
-                                                "width": "130px",
-                                                "padding": "6px 8px",
-                                                "borderRadius": "8px",
-                                                "border": "1px solid #004684",
-                                            },
-                                        ),
-                                    ]
+                                    "Auswertungsintervall definieren",
+                                    style={"fontSize": "18px", "color": "#004684"},
                                 ),
                                 html.Div(
+                                    style={
+                                        "display": "flex",
+                                        "gap": "12px",
+                                        "justifyContent": "center",
+                                        "marginTop": "8px",
+                                    },
                                     children=[
                                         html.Div(
-                                            "Ende [mm]",
-                                            style={
-                                                "fontSize": "18px",
-                                                "color": "#004684",
-                                                "marginBottom": "4px",
-                                            },
+                                            children=[
+                                                html.Div(
+                                                    "Start [mm]",
+                                                    style={
+                                                        "fontSize": "16px",
+                                                        "color": "#004684",
+                                                        "marginBottom": "4px",
+                                                    },
+                                                ),
+                                                dcc.Input(
+                                                    id="integ-start",
+                                                    type="number",
+                                                    value=DEFAULT_INTEG_START_MM,
+                                                    step=1,
+                                                    style={
+                                                        "width": "150px",
+                                                        "padding": "6px 8px",
+                                                        "borderRadius": "8px",
+                                                        "border": "1px solid #004684",
+                                                    },
+                                                ),
+                                            ]
                                         ),
-                                        dcc.Input(
-                                            id="integ-end",
-                                            type="number",
-                                            value=DEFAULT_INTEG_END_MM,
-                                            step=1,
-                                            style={
-                                                "width": "130px",
-                                                "padding": "6px 8px",
-                                                "borderRadius": "8px",
-                                                "border": "1px solid #004684",
-                                            },
+                                        html.Div(
+                                            children=[
+                                                html.Div(
+                                                    "Ende [mm]",
+                                                    style={
+                                                        "fontSize": "16px",
+                                                        "color": "#004684",
+                                                        "marginBottom": "4px",
+                                                    },
+                                                ),
+                                                dcc.Input(
+                                                    id="integ-end",
+                                                    type="number",
+                                                    value=DEFAULT_INTEG_END_MM,
+                                                    step=1,
+                                                    style={
+                                                        "width": "150px",
+                                                        "padding": "6px 8px",
+                                                        "borderRadius": "8px",
+                                                        "border": "1px solid #004684",
+                                                    },
+                                                ),
+                                            ]
                                         ),
-                                    ]
+                                    ],
                                 ),
                             ],
                         ),
                         html.Div(
-                            id="area-value",
-                            children=_init_area,
                             style={
-                                "fontSize": "24px",
-                                "fontWeight": "700",
-                                "color": "#004684",
-                                "marginTop": "6px",
+                                "background": "white",
+                                "border": "1px solid #d3dbe3",
+                                "borderRadius": "10px",
+                                "padding": "10px 12px",
+                                "minWidth": "220px",
+                                "textAlign": "center",
                             },
+                            children=[
+                                html.Div(
+                                    "Integrierte Fläche im Intervall",
+                                    style={"fontSize": "18px", "color": "#004684"},
+                                ),
+                                html.Div(
+                                    id="area-value",
+                                    children=_init_area,
+                                    style={
+                                        "fontSize": "24px",
+                                        "fontWeight": "700",
+                                        "color": "#004684",
+                                        "marginTop": "8px",
+                                    },
+                                ),
+                                html.Div(
+                                    "(mN\u00b7m entspricht mJ)",
+                                    style={"fontSize": "13px", "color": "grey"},
+                                ),
+                            ],
                         ),
                         html.Div(
-                            "(mN\u00b7m entspricht mJ)",
-                            style={"fontSize": "13px", "color": "grey"},
-                        ),
-                        html.Div(
-                            "Mittlere Kraft im Intervall",
                             style={
-                                "fontSize": "18px",
-                                "color": "#004684",
-                                "marginTop": "18px",
+                                "background": "white",
+                                "border": "1px solid #d3dbe3",
+                                "borderRadius": "10px",
+                                "padding": "10px 12px",
+                                "minWidth": "220px",
+                                "textAlign": "center",
                             },
-                        ),
-                        html.Div(
-                            id="mean-force-value",
-                            children=_init_mean_force,
-                            style={
-                                "fontSize": "24px",
-                                "fontWeight": "700",
-                                "color": "#004684",
-                                "marginTop": "6px",
-                            },
-                        ),
-                        html.Div(
-                            "(Intervallfläche geteilt durch Weglänge)",
-                            style={"fontSize": "13px", "color": "grey"},
+                            children=[
+                                html.Div(
+                                    "Mittlere Kraft im Intervall",
+                                    style={"fontSize": "18px", "color": "#004684"},
+                                ),
+                                html.Div(
+                                    id="mean-force-value",
+                                    children=_init_mean_force,
+                                    style={
+                                        "fontSize": "24px",
+                                        "fontWeight": "700",
+                                        "color": "#004684",
+                                        "marginTop": "8px",
+                                    },
+                                ),
+                            ],
                         ),
                     ],
                 )
