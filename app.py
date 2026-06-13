@@ -53,9 +53,6 @@ def _env_flag(name: str, default: bool) -> bool:
 
 
 DEBUG_MODE = _env_flag("APP_DEBUG", True)
-# In Debug-Sessions keine alten CSV-Daten vorladen, damit Code-Aenderungen
-# sichtbar werden und nicht von alten Extraktionsergebnissen ueberdeckt werden.
-USE_INITIAL_CSV_CACHE = _env_flag("APP_USE_INITIAL_CACHE", not DEBUG_MODE)
 
 
 # ===========================================================================
@@ -403,14 +400,6 @@ def digitize_blue_curve(img: Image.Image, calib: dict = None):
     return mm, N
 
 
-def compute_area_Nm(mm: np.ndarray, N: np.ndarray) -> float:
-    """Flaeche unter der Kurve.
-
-    Weg mm -> m, Ergebnis in N*m (Joule).
-    """
-    return float(trapezoid(N, mm / 1000.0))
-
-
 def _slice_curve_interval(
     mm: np.ndarray, N: np.ndarray, start_mm: float, end_mm: float
 ):
@@ -499,7 +488,6 @@ def format_mean_force_N(force_N: float) -> str:
 def make_figure(
     mm,
     N,
-    flaeche_Nm,
     integ_start_mm=DEFAULT_INTEG_START_MM,
     integ_end_mm=DEFAULT_INTEG_END_MM,
 ) -> go.Figure:
@@ -534,7 +522,6 @@ def make_figure(
         )
     )
     fig.update_layout(
-        # title=f"Kraft-Weg-Diagramm  -  Flaeche = {flaeche_Nm:.4f} N\u00b7m",
         xaxis_title="Dehnung in mm",
         yaxis_title="Kraft in N",
         xaxis_title_font=dict(size=18),
@@ -590,7 +577,7 @@ def make_figure(
 
 
 def empty_figure(
-    msg="Bitte Screenshot per Strg+V einfuegen oder Bild-Datei hochladen.",
+    msg="Bitte Screenshot per Strg+V einfügen oder Bild-Datei hochladen.",
 ):
     fig = go.Figure()
     fig.update_layout(
@@ -623,58 +610,10 @@ def decode_image(contents: str) -> Image.Image:
     return Image.open(io.BytesIO(raw))
 
 
-# ===========================================================================
-# OPTIONAL: vorhandene CSV als Startwert laden (falls vorhanden)
-# ===========================================================================
-def load_initial():
-    path = os.path.join(os.path.dirname(__file__), "kurven_daten.csv")
-    if os.path.exists(path):
-        df = pd.read_csv(path).sort_values("dehnung_mm")
-        mm = df["dehnung_mm"].to_numpy()
-        N = df["kraft_N"].to_numpy()
-        return mm, N
-    return None, None
-
-
-_init_mm, _init_N = load_initial() if USE_INITIAL_CSV_CACHE else (None, None)
-_init_fig = (
-    make_figure(
-        _init_mm,
-        _init_N,
-        compute_area_interval_Nm(
-            _init_mm, _init_N, DEFAULT_INTEG_START_MM, DEFAULT_INTEG_END_MM
-        ),
-        DEFAULT_INTEG_START_MM,
-        DEFAULT_INTEG_END_MM,
-    )
-    if _init_mm is not None
-    else empty_figure()
-)
-_init_area_value = (
-    compute_area_interval_Nm(
-        _init_mm, _init_N, DEFAULT_INTEG_START_MM, DEFAULT_INTEG_END_MM
-    )
-    if _init_mm is not None
-    else None
-)
-_init_mean_force_value = (
-    compute_mean_force_interval_N(
-        _init_mm, _init_N, DEFAULT_INTEG_START_MM, DEFAULT_INTEG_END_MM
-    )
-    if _init_mm is not None
-    else None
-)
-_init_area = (
-    format_area_milli(_init_area_value) if _init_area_value is not None else "\u2013"
-)
-_init_mean_force = (
-    format_mean_force_N(_init_mean_force_value)
-    if _init_mean_force_value is not None
-    else "\u2013"
-)
-_init_curve_data = (
-    {"mm": _init_mm.tolist(), "N": _init_N.tolist()} if _init_mm is not None else None
-)
+_init_fig = empty_figure()
+_init_area = "\u2013"
+_init_mean_force = "\u2013"
+_init_curve_data = None
 
 
 # ===========================================================================
@@ -1012,7 +951,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
             if len(mm) >= 2 and len(N) >= 2:
                 area = compute_area_interval_Nm(mm, N, start_mm, end_mm)
                 mean_force = compute_mean_force_interval_N(mm, N, start_mm, end_mm)
-                fig = make_figure(mm, N, area, start_mm, end_mm)
+                fig = make_figure(mm, N, start_mm, end_mm)
                 return (
                     fig,
                     format_area_milli(area),
@@ -1025,7 +964,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
             dash.no_update,
             dash.no_update,
             dash.no_update,
-            "Bitte zuerst ein Bild einfuegen oder hochladen.",
+            "Bitte zuerst ein Bild einfügen oder hochladen.",
             status_style_visible,
             dash.no_update,
         )
@@ -1036,7 +975,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
         mm, N = digitize_blue_curve(img, calib)
         area = compute_area_interval_Nm(mm, N, start_mm, end_mm)
         mean_force = compute_mean_force_interval_N(mm, N, start_mm, end_mm)
-        fig = make_figure(mm, N, area, start_mm, end_mm)
+        fig = make_figure(mm, N, start_mm, end_mm)
         # Ergebnis als CSV mitschreiben (optional)
         try:
             pd.DataFrame({"dehnung_mm": mm.round(3), "kraft_N": N.round(4)}).to_csv(
