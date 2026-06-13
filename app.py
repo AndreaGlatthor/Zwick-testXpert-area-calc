@@ -13,9 +13,8 @@ Funktionen
             relevante Linie robust von anderen Linien zu trennen.
 - X-Achse: Dehnung in mm
 - Y-Achse: Kraft in N
-- Integration der Flaeche unter der Kurve. Der Weg wird von mm in m
-    umgerechnet -> Ergebnis in N*m (= Joule).
-- Anzeige der Flaeche als Zahl und Plot mit grau schattierter Flaeche.
+- Integration der Flaeche unter der Kurve.
+- Anzeige der Flaeche und der mittleren Kraft sowie Plot mit schattierter Flaeche.
 
 Start:   python app.py
 Browser: http://127.0.0.1:8050
