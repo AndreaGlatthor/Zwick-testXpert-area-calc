@@ -1,4 +1,4 @@
-"""Kraft-Weg-Diagramm Web-App.
+"""Web-App für die Auswertung des T-Peel Tests mit Zwick TestXpert.
 
 Dash + Plotly App mit Bild-Digitalisierung aus der Zwischenablage oder per Datei-Upload
 
@@ -753,13 +753,14 @@ app.layout = html.Div(
                 "borderRadius": "10px",
                 "textAlign": "center",
                 "color": "#004684",
-                "marginBottom": "8px",
+                "marginBottom": "40px",
             },
             multiple=False,
         ),
         html.Div(
             id="status-msg",
             style={
+                "display": "none",
                 "textAlign": "center",
                 "color": "#c0392b",
                 "minHeight": "14px",
@@ -781,12 +782,6 @@ app.layout = html.Div(
                         "justifyContent": "center",
                     },
                     children=[
-                        html.Div(
-                            "Auswertungsintervall definieren",
-                            style={
-                                "display": "none",
-                            },
-                        ),
                         html.Div(
                             style={
                                 "background": "white",
@@ -948,8 +943,9 @@ app.layout = html.Div(
         html.P(
             (
                 "Digitalisierung: Die Kurve wird ueber ihren Farbton "
-                "(B > R und B > G) erkannt und per Kurven-Verfolgung "
-                "extrahiert. Die Fläche wird mit der Trapezregel berechnet."
+                "(B > R und B > G) erkannt über eine zusammenhängende "
+                "Kurven-Komponente extrahiert. Die Fläche wird mit der "
+                "Trapezregel berechnet."
             ),
             style={"fontSize": "13px", "color": "lightgrey", "marginTop": "16px"},
         ),
@@ -962,6 +958,7 @@ app.layout = html.Div(
     Output("area-value", "children"),
     Output("mean-force-value", "children"),
     Output("status-msg", "children"),
+    Output("status-msg", "style"),
     Output("curve-data", "data"),
     Input("pasted-image", "data"),
     Input("upload-image", "contents"),
@@ -974,6 +971,21 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
     # Quelle bestimmen (zuletzt ausgeloestes Ereignis)
     trigger = ctx.triggered_id
 
+    status_style_hidden = {
+        "display": "none",
+        "textAlign": "center",
+        "color": "#c0392b",
+        "minHeight": "14px",
+        "marginBottom": "8px",
+    }
+    status_style_visible = {
+        "display": "block",
+        "textAlign": "center",
+        "color": "#c0392b",
+        "minHeight": "14px",
+        "marginBottom": "8px",
+    }
+
     try:
         start_mm = float(DEFAULT_INTEG_START_MM if integ_start is None else integ_start)
         end_mm = float(DEFAULT_INTEG_END_MM if integ_end is None else integ_end)
@@ -983,13 +995,12 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
             dash.no_update,
             dash.no_update,
             "Fehler: Start/Ende muessen Zahlen sein.",
+            status_style_visible,
             dash.no_update,
         )
 
-    status_prefix = ""
     if start_mm > end_mm:
         start_mm, end_mm = end_mm, start_mm
-        status_prefix = "Hinweis: Start/Ende wurden automatisch sortiert. "
 
     if trigger == "pasted-image" and pasted:
         contents = pasted.get("data") if isinstance(pasted, dict) else pasted
@@ -1007,7 +1018,8 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
                     fig,
                     format_area_milli(area),
                     format_mean_force_N(mean_force),
-                    (status_prefix + "Integrationsbereich aktualisiert."),
+                    "",
+                    status_style_hidden,
                     dash.no_update,
                 )
         return (
@@ -1015,6 +1027,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
             dash.no_update,
             dash.no_update,
             "Bitte zuerst ein Bild einfuegen oder hochladen.",
+            status_style_visible,
             dash.no_update,
         )
 
@@ -1032,17 +1045,12 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
             )
         except Exception:
             pass
-        info = (
-            status_prefix + f"Digitalisierung erfolgreich \u2713  "
-            f"(Achsen automatisch erkannt: {calib['PX_PER_MM']:.2f} px/mm, "
-            f"{calib['PX_PER_N']:.2f} px/N; Integration: "
-            f"{start_mm:.1f} bis {end_mm:.1f} mm)"
-        )
         return (
             fig,
             format_area_milli(area),
             format_mean_force_N(mean_force),
-            html.Span(info, style={"color": "green"}),
+            "",
+            status_style_hidden,
             {"mm": mm.tolist(), "N": N.tolist()},
         )
     except Exception as e:
@@ -1051,6 +1059,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
             dash.no_update,
             dash.no_update,
             f"Fehler: {e}",
+            status_style_visible,
             dash.no_update,
         )
 
