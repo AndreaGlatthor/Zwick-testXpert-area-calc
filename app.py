@@ -37,8 +37,8 @@ from PIL import Image
 from scipy import ndimage
 from scipy.integrate import trapezoid
 
-DEFAULT_INTEG_START_MM = 120.0
-DEFAULT_INTEG_END_MM = 220.0
+DEFAULT_INTEG_START_MM = 130.0
+DEFAULT_INTEG_END_MM = 230.0
 DEFAULT_X_AXIS_MIN_MM = 50.0
 DEFAULT_X_AXIS_MAX_MM = 300.0
 X_AXIS_SPAN_MM = DEFAULT_X_AXIS_MAX_MM - DEFAULT_X_AXIS_MIN_MM
@@ -661,7 +661,7 @@ app.layout = html.Div(
     },
     children=[
         html.H1(
-            "Kraft-Weg-Diagramm - Flächenintegration",
+            "Auswertung T-Peel Test mit Zwick TestXpert",
             style={
                 "textAlign": "center",
                 "color": "#c9990d",
@@ -878,15 +878,6 @@ app.layout = html.Div(
         dcc.Store(id="pasted-image"),
         dcc.Store(id="paste-init", data=0),
         dcc.Store(id="curve-data", data=_init_curve_data),
-        html.P(
-            (
-                "Digitalisierung: Die Kurve wird ueber ihren Farbton "
-                "(B > R und B > G) erkannt über eine zusammenhängende "
-                "Kurven-Komponente extrahiert. Die Fläche wird mit der "
-                "Trapezregel berechnet."
-            ),
-            style={"fontSize": "13px", "color": "lightgrey", "marginTop": "16px"},
-        ),
     ],
 )
 
