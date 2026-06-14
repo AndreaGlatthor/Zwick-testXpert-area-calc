@@ -25,7 +25,7 @@ The app helps you quickly estimate energy-like and force metrics without manuall
 5. It computes:
 	- Integrated area over the selected interval (displayed as mN*m)
 	- Mean force over the selected interval (N)
-6. It also writes extracted points to `kurven_daten.csv`.
+6. It also writes extracted points to `xy-data.csv`.
 
 ## Run the app (Windows / PowerShell)
 

@@ -970,7 +970,7 @@ def update_from_image(pasted, uploaded, integ_start, integ_end, curve_data):
         # Ergebnis als CSV mitschreiben (optional)
         try:
             pd.DataFrame({"dehnung_mm": mm.round(3), "kraft_N": N.round(4)}).to_csv(
-                os.path.join(os.path.dirname(__file__), "kurven_daten.csv"), index=False
+                os.path.join(os.path.dirname(__file__), "xy-data.csv"), index=False
             )
         except Exception:
             pass
