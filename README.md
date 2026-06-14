@@ -17,8 +17,8 @@ The app helps you quickly estimate energy-like and force metrics without manuall
 ## How it works
 
 1. You provide a screenshot by either:
-	- Paste (`Ctrl+V` / `Cmd+V`) directly into the app window, or
-	- Upload an image file.
+    - Paste (`Ctrl+V` / `Cmd+V`) directly into the app window, or
+    - Upload an image file.
 2. The app auto-detects chart axes and plot boundaries.
 3. It finds the blue curve using color-dominance logic and connected-component tracking.
 4. It calibrates pixel distances to mm and N.
