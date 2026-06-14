@@ -33,6 +33,7 @@ The app helps you quickly estimate energy-like and force metrics without manuall
 <img src="Screenshot%201.png" alt="Example screenshot of testXpert output" width="400">
 
 <img src="Screenshot%20Output.png" alt="Example screenshot of the app with results" width="400">
+
 ## Run the app (Windows / PowerShell)
 
 Create a virtual environment:
