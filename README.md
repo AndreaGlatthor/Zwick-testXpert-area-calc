@@ -1,51 +1,85 @@
-# Zwick-testXpert-area-calc
+# Zwick testXpert Area Calculator
 
-## Setup (Windows / PowerShell)
+This project is a small Dash web app that evaluates a T-peel test curve from a screenshot exported from Zwick testXpert.
 
-1. Virtuelle Umgebung erstellen:
+## What the app is for
+
+The app helps you quickly estimate energy-like and force metrics without manually redrawing the curve:
+
+- Digitizes the blue force-displacement curve from a screenshot.
+- Converts pixel coordinates to physical units:
+  - X-axis: displacement in mm
+  - Y-axis: force in N
+- Calculates the integrated area in a selected displacement interval.
+- Calculates the mean force in that same interval.
+- Displays the extracted curve and highlighted integration region.
+
+## How it works
+
+1. You provide a screenshot by either:
+	- Paste (`Ctrl+V` / `Cmd+V`) directly into the app window, or
+	- Upload an image file.
+2. The app auto-detects chart axes and plot boundaries.
+3. It finds the blue curve using color-dominance logic and connected-component tracking.
+4. It calibrates pixel distances to mm and N.
+5. It computes:
+	- Integrated area over the selected interval (displayed as mN*m)
+	- Mean force over the selected interval (N)
+6. It also writes extracted points to `kurven_daten.csv`.
+
+## Run the app (Windows / PowerShell)
+
+1. Create a virtual environment:
 
 ```powershell
 python -m venv .venv
 ```
 
-2. Virtuelle Umgebung aktivieren:
+2. Activate the virtual environment:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-3. Laufzeit-Abhaengigkeiten installieren:
+3. Install runtime dependencies:
 
 ```powershell
 pip install dash plotly pandas numpy scipy pillow
 ```
 
-4. Dev-Abhaengigkeiten installieren:
-
-```powershell
-pip install -r requirements-dev.txt
-```
-
-## Pre-commit einrichten
-
-Einmalig im Repository ausfuehren:
-
-```powershell
-pre-commit install
-```
-
-Optional: alle Hooks manuell auf den gesamten Stand laufen lassen:
-
-```powershell
-pre-commit run --all-files
-```
-
-## App starten
-
-Mit aktivierter venv:
+4. Start the app:
 
 ```powershell
 python app.py
 ```
 
-Dann im Browser aufrufen: http://127.0.0.1:8050
+5. Open in your browser:
+
+```text
+http://127.0.0.1:8050
+```
+
+## Development (optional)
+
+Install development dependencies:
+
+```powershell
+pip install -r requirements-dev.txt
+```
+
+Install pre-commit hooks:
+
+```powershell
+pre-commit install
+```
+
+Run hooks manually on all files:
+
+```powershell
+pre-commit run --all-files
+```
+
+## Notes
+
+- `APP_DEBUG` controls Dash debug mode (`true/false`, default: `true`).
+- The current implementation is optimized for screenshots where the measured curve is blue.
