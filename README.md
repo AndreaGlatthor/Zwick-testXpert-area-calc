@@ -83,3 +83,9 @@ pre-commit run --all-files
 
 - `APP_DEBUG` controls Dash debug mode (`true/false`, default: `true`).
 - The current implementation is optimized for screenshots where the measured curve is blue.
+
+## Example Screenshots
+
+<img src="Screenshot%201.png" alt="Example screenshot of testXpert output" width="400">
+
+<img src="Screenshot%20Output.png" alt="Example screenshot of the app with results" width="400">
