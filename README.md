@@ -23,37 +23,43 @@ The app helps you quickly estimate energy-like and force metrics without manuall
 3. It finds the blue curve using color-dominance logic and connected-component tracking.
 4. It calibrates pixel distances to mm and N.
 5. It computes:
-	- Integrated area over the selected interval (displayed as mN*m)
-	- Mean force over the selected interval (N)
-6. It also writes extracted points to `xy-data.csv`.
 
+- Integrated area over the selected interval (displayed as mN*m)
+- Mean force over the selected interval (N)
+- It also writes extracted points to `xy-data.csv`.
+
+## Example Screenshots
+
+<img src="Screenshot%201.png" alt="Example screenshot of testXpert output" width="400">
+
+<img src="Screenshot%20Output.png" alt="Example screenshot of the app with results" width="400">
 ## Run the app (Windows / PowerShell)
 
-1. Create a virtual environment:
+Create a virtual environment:
 
 ```powershell
 python -m venv .venv
 ```
 
-2. Activate the virtual environment:
+Activate the virtual environment:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-3. Install runtime dependencies:
+Install runtime dependencies:
 
 ```powershell
 pip install dash plotly pandas numpy scipy pillow
 ```
 
-4. Start the app:
+Start the app:
 
 ```powershell
 python app.py
 ```
 
-5. Open in your browser:
+Open in your browser:
 
 ```text
 http://127.0.0.1:8050
@@ -83,9 +89,3 @@ pre-commit run --all-files
 
 - `APP_DEBUG` controls Dash debug mode (`true/false`, default: `true`).
 - The current implementation is optimized for screenshots where the measured curve is blue.
-
-## Example Screenshots
-
-<img src="Screenshot%201.png" alt="Example screenshot of testXpert output" width="400">
-
-<img src="Screenshot%20Output.png" alt="Example screenshot of the app with results" width="400">
