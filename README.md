@@ -1,10 +1,12 @@
 # Zwick testXpert Area Calculator
 
-This project is a small Dash web app that evaluates a T-peel test curve from a screenshot exported from Zwick testXpert.
+This project is a web application that evaluates a T-peel test curve from a Zwick testXpert screenshot. 
+It is useful if you do not have the option of integrating with testXpert or exporting to Excel, 
+both of which require a license.
 
 ## What the app is for
 
-The app helps you quickly estimate energy-like and force metrics without manually redrawing the curve:
+The app integrates the area under the curve and also calculates the average force.
 
 - Digitizes the blue force-displacement curve from a screenshot.
 - Converts pixel coordinates to physical units:
